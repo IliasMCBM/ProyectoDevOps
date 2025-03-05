@@ -24,29 +24,35 @@ class ChatBot():
     }
     self.k = 5
     self.documents = []
-    self.model_name = 'sentence-transformers/all-mpnet-base-v2'
+    self.model_name = os.getenv('EMBEDDING_MODEL', 'sentence-transformers/all-mpnet-base-v2')
+    self.vector_db_path = os.getenv('VECTOR_DB_PATH', 'faiss_index')
+    self.api_key = os.getenv("GROQ_API_KEY")
+
+    if not self.api_key:
+      raise ValueError('API_KEY is required')
+
     self.carga_documentos()
     self.search_with_langchain_faiss()
 
   def carga_documentos(self):
     # Paso 2: Divide los csv en Documentos
     for titulo_documento, columns in self.csvs.items():
-      df = pd.read_csv(f'data/{titulo_documento}_cleaned.csv')
+      file_path = f'data/{titulo_documento}_cleaned.csv'
+      if not os.path.exists(file_path):
+        raise ValueError(f'El archivo {file_path} no existe')
+      
+      df = pd.read_csv(file_path)
       df = df[columns]
-      if('id' not in columns):
+      if 'id' in columns:
         df['id'] = df.index
 
-      for i, r in df.iterrows():
+      for _, row in df.iterrows():
         self.documents.append(
-            Document(
-                page_content = r[0],
-                metadata={
-                    "source":titulo_documento,
-                    "id":r['id']
-                    }
-                )
-            )
-
+          Document(
+            page_content=row.iloc(0),
+            metadata = {"source": titulo_documento, "id": row['id']}
+          )
+        )
 
   def search_with_langchain_faiss(self):
     # Paso 1: Configura el modelo de embeddings
@@ -61,7 +67,7 @@ class ChatBot():
       self.faiss_index = FAISS.from_documents(self.documents, embedding=embeddings)
       self.faiss_index.save_local("faiss_index")
 
-    print('Base de datos generada')
+    print('Base de datos vectorial lista')
 
 
   def busca_contexto(self, query):
@@ -73,11 +79,7 @@ class ChatBot():
 
 
   def llamaResponse(self, query):
-    client = Groq(
-        # This is the default and can be omitted
-        api_key= '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',
-    )
-
+    client = Groq(api_key=self.api_key)
     chat_completion = client.chat.completions.create(
 
         messages=[
