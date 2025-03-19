@@ -37,35 +37,60 @@ class ChatBot():
   def carga_documentos(self):
     # Paso 2: Divide los csv en Documentos
     for titulo_documento, columns in self.csvs.items():
-      file_path = f'data/{titulo_documento}_cleaned.csv'
+      file_path = f'Data/{titulo_documento}_cleaned.csv'
       if not os.path.exists(file_path):
         raise ValueError(f'El archivo {file_path} no existe')
       
       df = pd.read_csv(file_path)
       df = df[columns]
-      if 'id' in columns:
+      
+      # Generate id only for documents that don't have it
+      if 'id' not in columns:
         df['id'] = df.index
 
       for _, row in df.iterrows():
+        metadata = {"source": titulo_documento}
+        if 'id' in df.columns:
+          metadata["id"] = row['id']
+        
+        # Get the content from the first column and convert to string
+        content = str(row.iloc[0])
+            
         self.documents.append(
           Document(
-            page_content=row.iloc(0),
-            metadata = {"source": titulo_documento, "id": row['id']}
+            page_content=content,
+            metadata=metadata
           )
         )
 
   def search_with_langchain_faiss(self):
     # Paso 1: Configura el modelo de embeddings
-    embeddings = HuggingFaceEmbeddings(model_name= self.model_name)
+    print('Iniciando configuración del modelo de embeddings...')
+    try:
+      embeddings = HuggingFaceEmbeddings(
+        model_name=self.model_name,
+        model_kwargs={'device': 'cpu'},
+        encode_kwargs={'normalize_embeddings': True}
+      )
+      print('Modelo de embeddings configurado exitosamente')
+    except Exception as e:
+      print(f'Error al configurar el modelo de embeddings: {str(e)}')
+      raise
 
     try:
-      print('Cargando base de datos')
+      print('Cargando base de datos vectorial...')
       self.faiss_index = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
-    except:
-      print('Base de datos no encontrada, generamos base de datos')
-      # Paso 4: Carga los documentos en el índice FAISS usando from_documents
-      self.faiss_index = FAISS.from_documents(self.documents, embedding=embeddings)
-      self.faiss_index.save_local("faiss_index")
+      print('Base de datos vectorial cargada exitosamente')
+    except Exception as e:
+      print('Base de datos no encontrada, generando nueva base de datos...')
+      try:
+        # Paso 4: Carga los documentos en el índice FAISS usando from_documents
+        self.faiss_index = FAISS.from_documents(self.documents, embedding=embeddings)
+        self.faiss_index.save_local("faiss_index")
+        print('Nueva base de datos vectorial generada y guardada exitosamente')
+      except Exception as e:
+        print(f'Error al generar la base de datos vectorial: {str(e)}')
+        raise
 
     print('Base de datos vectorial lista')
 

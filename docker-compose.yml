@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./Data:/app/Data
+      - ./faiss_index:/app/faiss_index
+      - huggingface_cache:/app/.cache/huggingface
+    env_file:
+      - .env
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 120s
+
+volumes:
+  huggingface_cache: 
