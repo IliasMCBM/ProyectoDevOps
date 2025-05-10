@@ -40,10 +40,25 @@ This project is a chatbot built using Retrieval Augmented Generation (RAG).
     This step reads from `DATA_PATH` and writes the index to `FAISS_INDEX_PATH`.
 
 6.  **Run the application:**
-    To run the Streamlit interface:
+    To run the Streamlit interface (it will use the port specified in `APP_PORT` from your `.env` file, or 8501 by default if not set in `.env` but only in `.env.example` or if `dotenv` loading fails for this specific CLI usage):
     ```bash
-    streamlit run botInterface.py
+    # Make sure APP_PORT is set in your environment (e.g., from .env or exported)
+    # Streamlit directly picks up some config like server.port via its own mechanisms
+    # but to be explicit with 12-Factor, we will guide users to set it and use it.
+    # One way to ensure it for the command if not globally exported:
+    APP_PORT=$(grep APP_PORT .env | cut -d '=' -f2) streamlit run botInterface.py --server.port=${APP_PORT:-8501}
+    # Or, if you load .env contents into your shell environment before running:
+    # streamlit run botInterface.py --server.port=$APP_PORT
     ```
+    A simpler way if `python-dotenv` CLI is available or if you manage env vars externally:
+    ```bash
+    # Assuming APP_PORT is loaded into the environment, e.g. by your shell sourcing .env,
+    # or using a tool like direnv, or if streamlit automatically picks it up.
+    # The most straightforward for Streamlit is to pass it as an argument:
+    streamlit run botInterface.py --server.port ${APP_PORT:-8501} 
+    # (The ${APP_PORT:-8501} syntax uses environment variable APP_PORT if set, otherwise defaults to 8501)
+    ```
+    The application will typically be available at `http://localhost:${APP_PORT}`.
 
 *(More details to be filled in as we progress)*
 
@@ -58,6 +73,7 @@ As we adapt the project to the 12-Factor methodology, this section will note key
 *   **Factor III (Config) & Factor IV (Backing Services):** Hardcoded Groq API key was moved to `GROQ_API_KEY` environment variable. Paths for data (`data/`) and FAISS index (`faiss_index/`) were made configurable via `DATA_PATH` and `FAISS_INDEX_PATH` environment variables, treating them as configurable resource locators.
 *   **Factor V (Build, Release, Run):** Introduced a separate `build_index.py` script to handle the creation of the FAISS vector index. The main application (`RAG.py`) now loads this pre-built index instead of generating it at runtime, clearly separating the build and run stages.
 *   **Factor VI (Processes):** The core request-handling logic of the `ChatBot` is stateless. The main application process (Streamlit) loads the FAISS index into memory as a read-only resource. Streamlit manages user session state (chat history) in memory within each process.
+*   **Factor VII (Port Binding):** The application uses Streamlit, which handles port binding. The port is configurable via the `APP_PORT` environment variable and passed to the `streamlit run` command.
 
 ### I. Codebase
 
@@ -105,3 +121,15 @@ Execute the app as one or more stateless processes.
 *   **In-Memory Index:** The FAISS index is loaded into the memory of each application process (Streamlit worker) at startup. This is treated as a read-only, pre-built dependency for the lifetime of the process. This is acceptable as it doesn't represent mutable state that changes with requests.
 *   **Streamlit Session State:** The `botInterface.py` (Streamlit app) uses `st.session_state` to maintain chat history for each user. This session state is currently held in the memory of the specific Streamlit process handling that user. For simple deployments, this is standard. For robust, scalable deployments that need to survive process restarts or load balancing across many instances without losing session data, this session state would ideally be externalized to a backing service (e.g., a database or cache like Redis). This is a more advanced consideration beyond the current scope.
 *   **Scalability:** Because the core request processing is stateless, the application can be scaled horizontally by running multiple instances of the Streamlit application. Each instance would operate independently with its own copy of the read-only FAISS index.
+
+### VII. Port Binding
+
+Export services via port binding.
+
+*   The application is served using Streamlit, which acts as the web server.
+*   When executed with `streamlit run botInterface.py`, Streamlit binds to a network port and serves the application over HTTP, making it a self-contained web service.
+*   The port is configurable. It is recommended to set the `APP_PORT` environment variable (e.g., in a `.env` file, with a default like `8501`) and use it when running the application:
+    ```bash
+    streamlit run botInterface.py --server.port ${APP_PORT:-8501}
+    ```
+*   This approach ensures the application does not rely on runtime injection of a webserver and explicitly declares its HTTP interface via port binding.
