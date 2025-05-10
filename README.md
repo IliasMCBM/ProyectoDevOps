@@ -74,6 +74,7 @@ As we adapt the project to the 12-Factor methodology, this section will note key
 *   **Factor V (Build, Release, Run):** Introduced a separate `build_index.py` script to handle the creation of the FAISS vector index. The main application (`RAG.py`) now loads this pre-built index instead of generating it at runtime, clearly separating the build and run stages.
 *   **Factor VI (Processes):** The core request-handling logic of the `ChatBot` is stateless. The main application process (Streamlit) loads the FAISS index into memory as a read-only resource. Streamlit manages user session state (chat history) in memory within each process.
 *   **Factor VII (Port Binding):** The application uses Streamlit, which handles port binding. The port is configurable via the `APP_PORT` environment variable and passed to the `streamlit run` command.
+*   **Factor VIII (Concurrency):** The application is designed to scale out by running multiple stateless Streamlit processes, typically behind a load balancer. Each process operates independently.
 
 ### I. Codebase
 
@@ -133,3 +134,12 @@ Export services via port binding.
     streamlit run botInterface.py --server.port ${APP_PORT:-8501}
     ```
 *   This approach ensures the application does not rely on runtime injection of a webserver and explicitly declares its HTTP interface via port binding.
+
+### VIII. Concurrency
+
+Scale out via the process model.
+
+*   The application is designed to achieve concurrency by running multiple instances of the Streamlit application process. This horizontal scaling is possible due to the stateless nature of the request handling (Factor VI).
+*   Each process would run independently, loading its own copy of the FAISS index and managing its own user sessions (given Streamlit's default session handling).
+*   In a typical deployment, these multiple processes would operate behind a load balancer, which distributes incoming requests among them.
+*   The application does not rely on complex in-process threading for concurrency but rather on adding more identical processes. This aligns with the 12-Factor model of scaling out.
