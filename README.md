@@ -99,6 +99,7 @@ As we adapt the project to the 12-Factor methodology, this section will note key
 *   **Factor VII (Port Binding):** The application uses Streamlit, which handles port binding. The `Dockerfile` `EXPOSE`s the `APP_PORT`, and `docker run` maps a host port to the container's exposed port.
 *   **Factor VIII (Concurrency):** The application is designed to scale out by running multiple stateless Docker containers, typically behind a load balancer. Each container operates independently.
 *   **Factor IX (Disposability):** Docker containers are inherently disposable. The FAISS index is built into the image for fast startup. Containers can be quickly started and stopped.
+*   **Factor X (Dev/Prod Parity):** Using Docker for both development and production ensures environments are as similar as possible, reducing environment-specific bugs.
 
 ### I. Codebase
 
@@ -175,3 +176,22 @@ Maximize robustness with fast startup and graceful shutdown.
 *   **Fast Startup:** Docker containers, by nature, start quickly. By building the FAISS index directly into the Docker image (during `docker build` via `RUN python build_index.py`), the application container starts with the index ready for use, minimizing startup time for the application logic itself.
 *   **Graceful Shutdown:** When a Docker container is stopped (e.g., via `docker stop`), it sends a `SIGTERM` signal to the main process inside the container (Streamlit in this case), followed by a `SIGKILL` if the process doesn't terminate within a timeout. Python applications and Streamlit generally handle `SIGTERM` by default to shut down. No special signal handling is currently implemented in the application code, as the default behavior is expected to be sufficient for clean termination without data loss (given stateless operations and read-only index).
 *   **Robustness & Scaling:** The disposability of containers allows for easy replacement of unhealthy instances and rapid scaling up or down by adding or removing containers.
+
+### X. Dev/prod parity
+
+Keep development, staging, and production as similar as possible.
+
+*   **Docker for Consistency:** The use of Docker is central to achieving dev/prod parity. The `Dockerfile` defines a consistent Linux-based environment with specific Python and dependency versions.
+*   **Development Workflow:** For optimal dev/prod parity, developers should run the application within the Docker container during development, similar to how it would run in staging or production. This can be achieved using `docker run` with volume mounts for the source code to allow live reloading of code changes without rebuilding the image for every minor edit.
+    ```bash
+    # Example for development with live code reloading (assuming current directory is project root):
+    docker run -p 8501:8501 \
+      --env GROQ_API_KEY="your_dev_groq_api_key" \
+      -v "$(pwd)/RAG.py:/app/RAG.py" \
+      -v "$(pwd)/botInterface.py:/app/botInterface.py" \
+      denexus-chatbot-ai
+    ```
+    *Note: For Streamlit, live reloading of Python module changes might require restarting the `streamlit run` command or more advanced Docker setups if changes are deep within imported modules. For simple UI or script changes in `botInterface.py`, Streamlit often reloads automatically.*
+*   **Production Deployment:** The same Docker image built and tested in development/staging environments is deployed to production. The only differences should be environment-specific configurations (Factor III) passed via environment variables.
+*   **Reduced Risk:** This approach significantly reduces the risk of bugs that occur only in production due to environment differences.
+*   **Backing Services:** While the application environment is consistent via Docker, dev/prod parity also extends to backing services (Factor IV). Ideally, development environments should connect to local or dev-tier instances of backing services (like a dev Groq API key or a local vector DB if used instead of FAISS files) that are as similar as possible to production services.
