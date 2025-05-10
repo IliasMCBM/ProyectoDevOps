@@ -101,6 +101,7 @@ As we adapt the project to the 12-Factor methodology, this section will note key
 *   **Factor IX (Disposability):** Docker containers are inherently disposable. The FAISS index is built into the image for fast startup. Containers can be quickly started and stopped.
 *   **Factor X (Dev/Prod Parity):** Using Docker for both development and production ensures environments are as similar as possible, reducing environment-specific bugs.
 *   **Factor XI (Logs):** The application writes logs to `stdout`/`stderr`. Docker captures these streams, making them available via `docker logs` and enabling integration with centralized logging systems.
+*   **Factor XII (Admin Processes):** The primary admin task, building the FAISS index (`build_index.py`), is run in the same environment as the application (during Docker image build) and ships with the app code.
 
 ### I. Codebase
 
@@ -209,3 +210,20 @@ Treat logs as event streams.
     ```
 *   **Log Management:** In a production environment, Docker's logging driver would typically be configured to forward these log streams to a dedicated logging system (e.g., ELK Stack, Splunk, Grafana Loki, AWS CloudWatch Logs, etc.) for aggregation, analysis, and long-term storage. The application itself does not manage log files or routing.
 *   **Future Refinement (Python `logging` module):** For more structured logging (e.g., log levels, custom formats, contextual information), future development could incorporate Python's standard `logging` module, configured to output to `stdout`. This would enhance log management capabilities without violating Factor XI.
+
+### XII. Admin processes
+
+Run admin/management tasks as one-off processes.
+
+*   **FAISS Index Building (`build_index.py`):** The primary administrative task for this application is building the FAISS vector index. This is handled by the `build_index.py` script.
+    *   **Ships with Code:** The script is part of the application codebase.
+    *   **Identical Environment:** When using Docker, this script is executed via a `RUN` command in the `Dockerfile`. This means it runs in the exact same environment (OS, Python version, dependencies, environment variables like `DATA_PATH`, `FAISS_INDEX_PATH`) as the main application will eventually run in. This is a key aspect of Factor XII.
+    *   **One-off Execution:** It's a one-off task that prepares an asset (the index) for the application. By running it during `docker build`, the resulting image contains the pre-built index.
+*   **Other Admin Tasks:** If other one-off administrative tasks were needed (e.g., data migration, running a specific utility script), they should be implemented as scripts within the codebase and run using the application's Docker image to ensure environment consistency:
+    ```bash
+    docker run --rm --env-file .env denexus-chatbot-ai python path/to/your_admin_script.py [args]
+    ```
+    Using `--env-file .env` (if your `.env` file contains all necessary non-secret configs or if you manage secrets via the execution environment) or individual `--env` flags ensures the script has access to the same configuration as the main app.
+*   **No SSH / Shell Access to Running Instances:** Factor XII discourages SSHing into running production instances to perform admin tasks. Instead, such tasks should be scripted and run as described above.
+
+*(End of 12-Factor App Implementation section)*
