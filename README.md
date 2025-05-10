@@ -60,6 +60,29 @@ This project is a chatbot built using Retrieval Augmented Generation (RAG).
     ```
     The application will typically be available at `http://localhost:${APP_PORT}`.
 
+### Running with Docker (Recommended for Deployment)
+
+This project includes a `Dockerfile` to build and run the application in a containerized environment. This is the recommended way to run the application for consistency and to align with 12-Factor principles.
+
+1.  **Build the Docker image:**
+    From the project root directory (where the `Dockerfile` is located):
+    ```bash
+    docker build -t denexus-chatbot-ai .
+    ```
+
+2.  **Run the Docker container:**
+    You'll need to pass your `GROQ_API_KEY` as an environment variable to the container. You can also override `APP_PORT` if needed.
+    ```bash
+    docker run -p 8501:8501 --env GROQ_API_KEY="your_actual_groq_api_key" denexus-chatbot-ai
+    # To use a different host port or specify the container port (if you changed APP_PORT in .env or want to override Dockerfile default):
+    # docker run -p <host_port>:<container_port> --env GROQ_API_KEY="your_actual_groq_api_key" --env APP_PORT=<container_port> denexus-chatbot-ai
+    ```
+    For example, if your `GROQ_API_KEY` is `sk-123...` and you want to run on host port `8000` mapping to container port `8501` (the default in the image):
+    ```bash
+    docker run -p 8000:8501 --env GROQ_API_KEY="sk-123..." denexus-chatbot-ai
+    ```
+    The application will be available at `http://localhost:<host_port>` (e.g., `http://localhost:8000`).
+
 *(More details to be filled in as we progress)*
 
 ## 12-Factor App Implementation
@@ -71,10 +94,11 @@ This section details how the project adheres to the 12-Factor App methodology.
 As we adapt the project to the 12-Factor methodology, this section will note key changes, decisions, and areas that could be further refined in a more complex production environment.
 
 *   **Factor III (Config) & Factor IV (Backing Services):** Hardcoded Groq API key was moved to `GROQ_API_KEY` environment variable. Paths for data (`data/`) and FAISS index (`faiss_index/`) were made configurable via `DATA_PATH` and `FAISS_INDEX_PATH` environment variables, treating them as configurable resource locators.
-*   **Factor V (Build, Release, Run):** Introduced a separate `build_index.py` script to handle the creation of the FAISS vector index. The main application (`RAG.py`) now loads this pre-built index instead of generating it at runtime, clearly separating the build and run stages.
-*   **Factor VI (Processes):** The core request-handling logic of the `ChatBot` is stateless. The main application process (Streamlit) loads the FAISS index into memory as a read-only resource. Streamlit manages user session state (chat history) in memory within each process.
-*   **Factor VII (Port Binding):** The application uses Streamlit, which handles port binding. The port is configurable via the `APP_PORT` environment variable and passed to the `streamlit run` command.
-*   **Factor VIII (Concurrency):** The application is designed to scale out by running multiple stateless Streamlit processes, typically behind a load balancer. Each process operates independently.
+*   **Factor V (Build, Release, Run):** Introduced a separate `build_index.py` script to handle the creation of the FAISS vector index. The main application (`RAG.py`) now loads this pre-built index instead of generating it at runtime, clearly separating the build and run stages. With Docker, `docker build` executes `build_index.py` incorporating the index into the image (build & release), and `docker run` executes the application (run).
+*   **Factor VI (Processes):** The core request-handling logic of the `ChatBot` is stateless. The main application process (Streamlit running in a Docker container) loads the FAISS index into memory as a read-only resource. Streamlit manages user session state (chat history) in memory within each container.
+*   **Factor VII (Port Binding):** The application uses Streamlit, which handles port binding. The `Dockerfile` `EXPOSE`s the `APP_PORT`, and `docker run` maps a host port to the container's exposed port.
+*   **Factor VIII (Concurrency):** The application is designed to scale out by running multiple stateless Docker containers, typically behind a load balancer. Each container operates independently.
+*   **Factor IX (Disposability):** Docker containers are inherently disposable. The FAISS index is built into the image for fast startup. Containers can be quickly started and stopped.
 
 ### I. Codebase
 
@@ -140,6 +164,14 @@ Export services via port binding.
 Scale out via the process model.
 
 *   The application is designed to achieve concurrency by running multiple instances of the Streamlit application process. This horizontal scaling is possible due to the stateless nature of the request handling (Factor VI).
-*   Each process would run independently, loading its own copy of the FAISS index and managing its own user sessions (given Streamlit's default session handling).
-*   In a typical deployment, these multiple processes would operate behind a load balancer, which distributes incoming requests among them.
-*   The application does not rely on complex in-process threading for concurrency but rather on adding more identical processes. This aligns with the 12-Factor model of scaling out.
+*   Each process (typically a Docker container instance) would run independently, loading its own copy of the FAISS index (built into the image) and managing its own user sessions (given Streamlit's default session handling).
+*   In a typical deployment, these multiple processes/containers would operate behind a load balancer, which distributes incoming requests among them.
+*   The application does not rely on complex in-process threading for concurrency but rather on adding more identical processes/containers. This aligns with the 12-Factor model of scaling out.
+
+### IX. Disposability
+
+Maximize robustness with fast startup and graceful shutdown.
+
+*   **Fast Startup:** Docker containers, by nature, start quickly. By building the FAISS index directly into the Docker image (during `docker build` via `RUN python build_index.py`), the application container starts with the index ready for use, minimizing startup time for the application logic itself.
+*   **Graceful Shutdown:** When a Docker container is stopped (e.g., via `docker stop`), it sends a `SIGTERM` signal to the main process inside the container (Streamlit in this case), followed by a `SIGKILL` if the process doesn't terminate within a timeout. Python applications and Streamlit generally handle `SIGTERM` by default to shut down. No special signal handling is currently implemented in the application code, as the default behavior is expected to be sufficient for clean termination without data loss (given stateless operations and read-only index).
+*   **Robustness & Scaling:** The disposability of containers allows for easy replacement of unhealthy instances and rapid scaling up or down by adding or removing containers.
