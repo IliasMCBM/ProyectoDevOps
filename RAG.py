@@ -73,9 +73,12 @@ class ChatBot():
 
 
   def llamaResponse(self, query):
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        raise ValueError("GROQ_API_KEY environment variable not set.")
     client = Groq(
         # This is the default and can be omitted
-        api_key= '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',
+        api_key=api_key,
     )
 
     chat_completion = client.chat.completions.create(
