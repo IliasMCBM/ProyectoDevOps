@@ -8,8 +8,49 @@ This project is a chatbot built using Retrieval Augmented Generation (RAG).
 
 ## Getting Started
 
-*(To be filled in)*
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository-url>
+    cd DeNexus_ChatBot-AI
+    ```
+
+2.  **Create and activate a virtual environment:** (Recommended)
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+    ```
+
+3.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+4.  **Set up environment variables:** (See Factor III: Config below)
+
+5.  **Run the application:**
+    To run the Streamlit interface:
+    ```bash
+    streamlit run botInterface.py
+    ```
+
+*(More details to be filled in as we progress)*
 
 ## 12-Factor App Implementation
+
+This section details how the project adheres to the 12-Factor App methodology.
+
+### I. Codebase
+
+One codebase tracked in Git, supporting multiple deploys (development, production).
+
+*   All code, configuration templates, and infrastructure definitions are stored in the Git repository.
+*   The `faiss_index/` directory, which contains the generated FAISS index, is listed in `.gitignore` as it's a build artifact and should be generated during the build/deployment process.
+
+### II. Dependencies
+
+Dependencies are explicitly declared and isolated.
+
+*   All Python dependencies are listed in `requirements.txt`.
+*   It is strongly recommended to use a Python virtual environment (e.g., `venv`) to isolate project dependencies.
 
 *(To be filled in)*
