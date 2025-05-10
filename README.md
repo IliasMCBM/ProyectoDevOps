@@ -83,7 +83,40 @@ This project includes a `Dockerfile` to build and run the application in a conta
     ```
     The application will be available at `http://localhost:<host_port>` (e.g., `http://localhost:8000`).
 
-*(More details to be filled in as we progress)*
+### Health Check
+
+The application provides a health check endpoint that reports on the status of key components:
+- FAISS index availability
+- Groq API connectivity 
+- Application uptime
+
+To access the health check:
+```
+http://localhost:8501/?health-check
+```
+
+The health check returns a JSON response with status information for all critical components.
+
+### Testing
+
+Unit tests are included in the `tests/` directory to verify the core functionality without relying on external services:
+
+1. **Run the tests:**
+   ```bash
+   python -m unittest discover -s tests
+   ```
+
+2. **Test coverage includes:**
+   - ChatBot initialization and configuration
+   - FAISS index loading
+   - Context retrieval functionality
+   - LLM response generation (mocked)
+   - Error handling for missing API keys
+
+If you're using Docker, you can run the tests inside the container:
+```bash
+docker run --rm denexus-chatbot-ai python -m unittest discover -s tests
+```
 
 ## 12-Factor App Implementation
 
