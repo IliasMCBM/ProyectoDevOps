@@ -16,61 +16,26 @@ class ChatBot():
   def __init__(self):
     self.data_path = os.environ.get("DATA_PATH", "data")
     self.faiss_index_path = os.environ.get("FAISS_INDEX_PATH", "faiss_index")
-    self.csvs = {
-    'CISSM': ['event_description'],
-    'HACKMAGEDDON': ['Description'],
-    'ICSSTRIVE': ['description'],
-    'KONBRIEFING': ['description'],
-    'TISAFE': ['attack_details', 'id'],
-    'WATERFALL': ['incident_summary', 'id']
-    }
     self.k = 5
-    self.documents = []
     self.model_name = 'sentence-transformers/all-mpnet-base-v2'
-    self.carga_documentos()
-    self.search_with_langchain_faiss()
+    self.load_faiss_index()
 
-  def carga_documentos(self):
-    # Paso 2: Divide los csv en Documentos
-    for titulo_documento, columns in self.csvs.items():
-      df = pd.read_csv(f'{self.data_path}/{titulo_documento}_cleaned.csv')
-      df = df[columns]
-      if('id' not in columns):
-        df['id'] = df.index
-
-      for i, r in df.iterrows():
-        self.documents.append(
-            Document(
-                page_content = r.iloc[0],
-                metadata={
-                    "source":titulo_documento,
-                    "id":r['id']
-                    }
-                )
-            )
-
-
-  def search_with_langchain_faiss(self):
-    # Paso 1: Configura el modelo de embeddings
-    embeddings = HuggingFaceEmbeddings(model_name= self.model_name)
-
+  def load_faiss_index(self):
+    embeddings = HuggingFaceEmbeddings(model_name=self.model_name)
     try:
-      print('Cargando base de datos')
+      print(f'Loading FAISS index from: {self.faiss_index_path}')
       self.faiss_index = FAISS.load_local(self.faiss_index_path, embeddings, allow_dangerous_deserialization=True)
-    except:
-      print('Base de datos no encontrada, generamos base de datos')
-      # Paso 4: Carga los documentos en el índice FAISS usando from_documents
-      self.faiss_index = FAISS.from_documents(self.documents, embedding=embeddings)
-      self.faiss_index.save_local(self.faiss_index_path)
-
-    print('Base de datos generada')
-
+      print('FAISS index loaded successfully.')
+    except Exception as e:
+      print(f'ERROR: Failed to load FAISS index from {self.faiss_index_path}. Exception: {e}')
+      print('Please ensure the index has been built using build_index.py before running the application.')
+      self.faiss_index = None
 
   def busca_contexto(self, query):
-    # Paso 5: Realiza la búsqueda
+    if not self.faiss_index:
+        print("FAISS index is not loaded. Cannot perform search.")
+        return []
     results = self.faiss_index.similarity_search(query, k= self.k)
-
-    # Paso 6: Devuelve los resultados como texto
     return [result.page_content for result in results]
 
 
