@@ -100,6 +100,7 @@ As we adapt the project to the 12-Factor methodology, this section will note key
 *   **Factor VIII (Concurrency):** The application is designed to scale out by running multiple stateless Docker containers, typically behind a load balancer. Each container operates independently.
 *   **Factor IX (Disposability):** Docker containers are inherently disposable. The FAISS index is built into the image for fast startup. Containers can be quickly started and stopped.
 *   **Factor X (Dev/Prod Parity):** Using Docker for both development and production ensures environments are as similar as possible, reducing environment-specific bugs.
+*   **Factor XI (Logs):** The application writes logs to `stdout`/`stderr`. Docker captures these streams, making them available via `docker logs` and enabling integration with centralized logging systems.
 
 ### I. Codebase
 
@@ -195,3 +196,16 @@ Keep development, staging, and production as similar as possible.
 *   **Production Deployment:** The same Docker image built and tested in development/staging environments is deployed to production. The only differences should be environment-specific configurations (Factor III) passed via environment variables.
 *   **Reduced Risk:** This approach significantly reduces the risk of bugs that occur only in production due to environment differences.
 *   **Backing Services:** While the application environment is consistent via Docker, dev/prod parity also extends to backing services (Factor IV). Ideally, development environments should connect to local or dev-tier instances of backing services (like a dev Groq API key or a local vector DB if used instead of FAISS files) that are as similar as possible to production services.
+
+### XI. Logs
+
+Treat logs as event streams.
+
+*   **Output to `stdout`/`stderr`:** The application (including `RAG.py`, `build_index.py`, and Streamlit itself) writes log output to standard output (`stdout`) and standard error (`stderr`). This is achieved through `print()` statements in the custom scripts and the default behavior of Streamlit.
+*   **Unbuffered Output:** The `Dockerfile` sets `ENV PYTHONUNBUFFERED=1`, ensuring that Python's log output is sent directly to the console streams without buffering, making logs timely.
+*   **Docker Log Collection:** When running in a Docker container, Docker automatically captures these `stdout` and `stderr` streams. You can inspect these logs using the command:
+    ```bash
+    docker logs <container_id_or_name>
+    ```
+*   **Log Management:** In a production environment, Docker's logging driver would typically be configured to forward these log streams to a dedicated logging system (e.g., ELK Stack, Splunk, Grafana Loki, AWS CloudWatch Logs, etc.) for aggregation, analysis, and long-term storage. The application itself does not manage log files or routing.
+*   **Future Refinement (Python `logging` module):** For more structured logging (e.g., log levels, custom formats, contextual information), future development could incorporate Python's standard `logging` module, configured to output to `stdout`. This would enhance log management capabilities without violating Factor XI.
