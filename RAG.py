@@ -39,7 +39,7 @@ class ChatBot():
       for i, r in df.iterrows():
         self.documents.append(
             Document(
-                page_content = r[0],
+                page_content = r.iloc[0],
                 metadata={
                     "source":titulo_documento,
                     "id":r['id']
