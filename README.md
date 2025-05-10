@@ -118,6 +118,52 @@ If you're using Docker, you can run the tests inside the container:
 docker run --rm denexus-chatbot-ai python -m unittest discover -s tests
 ```
 
+### Log Monitoring with ELK Stack
+
+The project includes an ELK (Elasticsearch, Logstash, Kibana) stack for advanced log monitoring and visualization. Logs are collected automatically from all Docker containers, with special parsing rules for the chatbot application.
+
+#### Setup and Usage
+
+1. **Run the ELK stack with the application:**
+   ```bash
+   # Make sure your .env file contains GROQ_API_KEY
+   docker-compose up -d
+   ```
+
+2. **Access the monitoring dashboard:**
+   - Kibana: http://localhost:5601
+   - Elasticsearch API: http://localhost:9200
+
+3. **Setting up Kibana (first-time setup):**
+   - Go to http://localhost:5601
+   - Navigate to "Stack Management" → "Index Patterns"
+   - Create an index pattern with `chatbot-logs-*`
+   - Select `@timestamp` as the time filter field
+   - Click "Create index pattern"
+   - Go to "Discover" to see incoming logs
+
+4. **Log visualization features:**
+   - Filter logs by level (INFO, WARNING, ERROR)
+   - View logs by component (faiss_index, groq_api)
+   - Create dashboards for error monitoring
+   - Set up alerts for critical errors
+
+5. **Structured logging:**
+   The application now uses structured JSON logging for better ELK integration. Key fields include:
+   - `timestamp`: When the log entry was created
+   - `level`: Log level (INFO, WARNING, ERROR)
+   - `message`: The log message
+   - `logger`: The logger name (chatbot)
+   - `function`: For errors, indicates which function failed
+   - `error_type`: The type of exception for errors
+   - `component`: Which component the log relates to
+
+#### Customizing Log Retention
+
+By default, logs are retained based on Elasticsearch's default retention policy. For production use, consider setting up index lifecycle management in Elasticsearch.
+
+*(More details to be filled in as we progress)*
+
 ## 12-Factor App Implementation
 
 This section details how the project adheres to the 12-Factor App methodology.
@@ -235,14 +281,15 @@ Keep development, staging, and production as similar as possible.
 
 Treat logs as event streams.
 
-*   **Output to `stdout`/`stderr`:** The application (including `RAG.py`, `build_index.py`, and Streamlit itself) writes log output to standard output (`stdout`) and standard error (`stderr`). This is achieved through `print()` statements in the custom scripts and the default behavior of Streamlit.
+*   **Output to `stdout`/`stderr`:** The application (including `RAG.py`, `build_index.py`, and Streamlit itself) writes log output to standard output (`stdout`) and standard error (`stderr`). This is achieved through the Python logging module configured to output structured JSON logs.
 *   **Unbuffered Output:** The `Dockerfile` sets `ENV PYTHONUNBUFFERED=1`, ensuring that Python's log output is sent directly to the console streams without buffering, making logs timely.
-*   **Docker Log Collection:** When running in a Docker container, Docker automatically captures these `stdout` and `stderr` streams. You can inspect these logs using the command:
+*   **Structured Logging:** The application uses JSON structured logging, which makes the logs more machine-parsable and enables better indexing in Elasticsearch.
+*   **ELK Stack Integration:** Logs are collected by Filebeat, processed by Logstash, stored in Elasticsearch, and visualized through Kibana.
+*   **Docker Log Collection:** When running in a Docker container, Docker automatically captures these `stdout` and `stderr` streams. These are then collected by Filebeat and forwarded to the ELK stack.
+*   **Log Management:** The ELK stack provides comprehensive log management features:
     ```bash
     docker logs <container_id_or_name>
     ```
-*   **Log Management:** In a production environment, Docker's logging driver would typically be configured to forward these log streams to a dedicated logging system (e.g., ELK Stack, Splunk, Grafana Loki, AWS CloudWatch Logs, etc.) for aggregation, analysis, and long-term storage. The application itself does not manage log files or routing.
-*   **Future Refinement (Python `logging` module):** For more structured logging (e.g., log levels, custom formats, contextual information), future development could incorporate Python's standard `logging` module, configured to output to `stdout`. This would enhance log management capabilities without violating Factor XI.
 
 ### XII. Admin processes
 
