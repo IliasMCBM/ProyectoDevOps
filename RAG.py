@@ -14,6 +14,8 @@ from langchain.schema import Document
 class ChatBot():
 
   def __init__(self):
+    self.data_path = os.environ.get("DATA_PATH", "data")
+    self.faiss_index_path = os.environ.get("FAISS_INDEX_PATH", "faiss_index")
     self.csvs = {
     'CISSM': ['event_description'],
     'HACKMAGEDDON': ['Description'],
@@ -31,7 +33,7 @@ class ChatBot():
   def carga_documentos(self):
     # Paso 2: Divide los csv en Documentos
     for titulo_documento, columns in self.csvs.items():
-      df = pd.read_csv(f'data/{titulo_documento}_cleaned.csv')
+      df = pd.read_csv(f'{self.data_path}/{titulo_documento}_cleaned.csv')
       df = df[columns]
       if('id' not in columns):
         df['id'] = df.index
@@ -54,12 +56,12 @@ class ChatBot():
 
     try:
       print('Cargando base de datos')
-      self.faiss_index = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
+      self.faiss_index = FAISS.load_local(self.faiss_index_path, embeddings, allow_dangerous_deserialization=True)
     except:
       print('Base de datos no encontrada, generamos base de datos')
       # Paso 4: Carga los documentos en el índice FAISS usando from_documents
       self.faiss_index = FAISS.from_documents(self.documents, embedding=embeddings)
-      self.faiss_index.save_local("faiss_index")
+      self.faiss_index.save_local(self.faiss_index_path)
 
     print('Base de datos generada')
 
