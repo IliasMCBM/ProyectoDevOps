@@ -33,4 +33,5 @@ EXPOSE ${APP_PORT}
 
 # Define the command to run your app using streamlit
 # The server will bind to 0.0.0.0 to be accessible from outside the container
-CMD ["streamlit", "run", "botInterface.py", "--server.port", "${APP_PORT}", "--server.address", "0.0.0.0"] 
+# Use shell form to allow variable substitution for APP_PORT
+CMD streamlit run botInterface.py --server.port=${APP_PORT} --server.address=0.0.0.0 
