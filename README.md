@@ -57,6 +57,7 @@ As we adapt the project to the 12-Factor methodology, this section will note key
 
 *   **Factor III (Config) & Factor IV (Backing Services):** Hardcoded Groq API key was moved to `GROQ_API_KEY` environment variable. Paths for data (`data/`) and FAISS index (`faiss_index/`) were made configurable via `DATA_PATH` and `FAISS_INDEX_PATH` environment variables, treating them as configurable resource locators.
 *   **Factor V (Build, Release, Run):** Introduced a separate `build_index.py` script to handle the creation of the FAISS vector index. The main application (`RAG.py`) now loads this pre-built index instead of generating it at runtime, clearly separating the build and run stages.
+*   **Factor VI (Processes):** The core request-handling logic of the `ChatBot` is stateless. The main application process (Streamlit) loads the FAISS index into memory as a read-only resource. Streamlit manages user session state (chat history) in memory within each process.
 
 ### I. Codebase
 
@@ -95,3 +96,12 @@ Strictly separate build and run stages.
 *   **Build Stage:** Executed by running `python build_index.py`. This script takes the codebase, dependencies (installed via `requirements.txt`), and data (from `DATA_PATH`) to produce the FAISS vector index (saved to `FAISS_INDEX_PATH`). This index is a build artifact.
 *   **Release Stage:** A release is the combination of the build (code + build artifacts like the FAISS index) and the configuration (environment variables). For this project, a release isn't a single packaged binary but the state of the repository files plus the generated index, ready to be run with appropriate environment configuration.
 *   **Run Stage:** Executed by running `streamlit run botInterface.py`. This stage runs the application. The application expects the FAISS index to be pre-built and available at `FAISS_INDEX_PATH`. It does not perform any build steps itself.
+
+### VI. Processes
+
+Execute the app as one or more stateless processes.
+
+*   **ChatBot Logic:** The `ChatBot` class in `RAG.py`, once initialized with the FAISS index, processes each incoming query statelessly. It does not retain information from one query to affect the processing of subsequent, independent queries.
+*   **In-Memory Index:** The FAISS index is loaded into the memory of each application process (Streamlit worker) at startup. This is treated as a read-only, pre-built dependency for the lifetime of the process. This is acceptable as it doesn't represent mutable state that changes with requests.
+*   **Streamlit Session State:** The `botInterface.py` (Streamlit app) uses `st.session_state` to maintain chat history for each user. This session state is currently held in the memory of the specific Streamlit process handling that user. For simple deployments, this is standard. For robust, scalable deployments that need to survive process restarts or load balancing across many instances without losing session data, this session state would ideally be externalized to a backing service (e.g., a database or cache like Redis). This is a more advanced consideration beyond the current scope.
+*   **Scalability:** Because the core request processing is stateless, the application can be scaled horizontally by running multiple instances of the Streamlit application. Each instance would operate independently with its own copy of the read-only FAISS index.
