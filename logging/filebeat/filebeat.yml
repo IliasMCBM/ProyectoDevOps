@@ -1,0 +1,41 @@
+filebeat.inputs:
+- type: container
+  enabled: true
+  paths:
+    - '/var/lib/docker/containers/*/*.log'
+
+processors:
+  - add_docker_metadata:
+      host: "unix:///var/run/docker.sock"
+  
+  - decode_json_fields:
+      fields: ["message"]
+      target: "json"
+      process_array: false
+      max_depth: 1
+      overwrite_keys: true
+      add_error_key: true
+  
+  # Add timestamp for log correlation
+  - add_host_metadata: ~
+  - add_cloud_metadata: ~
+  - add_docker_metadata: ~
+
+filebeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: false
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+# For debugging purposes - uncomment to see raw filebeat logs
+# output.console:
+#   pretty: true
+
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644 
