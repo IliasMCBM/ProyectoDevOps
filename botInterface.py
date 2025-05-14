@@ -91,7 +91,7 @@ def handle_errors(func):
 # Initialize the ChatBot
 try:
     logger.info("Initializing ChatBot")
-    chat = ChatBot()
+chat = ChatBot()
     health_status["components"]["faiss_index"] = "healthy" if chat.faiss_index else "unhealthy"
     logger.info("ChatBot initialized successfully", extra={
         "props": {"faiss_index_status": health_status["components"]["faiss_index"]}
@@ -128,14 +128,14 @@ def response_generator(userInput, botContext):
     # Update the health status for Groq API
     try:
         logger.info("Calling Groq API")
-        response = chat.llamaResponse(userInput)
+    response = chat.llamaResponse(userInput)
         health_status["components"]["groq_api"] = "healthy"
         logger.info("Received response from Groq API", extra={
             "props": {"response_length": len(response) if response else 0}
         })
-        for word in response.split():
-            yield word + " "
-            time.sleep(0.05)
+    for word in response.split():
+        yield word + " "
+        time.sleep(0.05)
     except Exception as e:
         health_status["components"]["groq_api"] = "unhealthy"
         logger.error(f"Error calling Groq API: {str(e)}", extra={
@@ -200,11 +200,11 @@ if prompt := st.chat_input("What do you want to ask?", key=2):
     
     # Add user message to session state
     st.session_state.messages.append({"role": "user", "content": prompt})
-    
+
     # Display user message
     with st.chat_message("user"):
         st.markdown(prompt)
-    
+
     # Generate and display assistant response
     with st.chat_message("assistant"):
         response = st.write_stream(response_generator(prompt, ""))

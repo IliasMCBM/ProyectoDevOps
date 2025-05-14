@@ -1,6 +1,6 @@
 http.host: "0.0.0.0"
 xpack.monitoring.elasticsearch.hosts: [ "http://elasticsearch:9200" ]
-
+ 
 # Lower memory settings for development
 pipeline.batch.size: 125
 pipeline.batch.delay: 50
