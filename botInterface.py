@@ -147,7 +147,7 @@ def response_generator(userInput, botContext):
         raise e
 
 # Add health check endpoint using Streamlit's URL parameters
-if "health-check" in st.experimental_get_query_params():
+if "health-check" in st.query_params:
     # Update uptime
     update_uptime()
     
